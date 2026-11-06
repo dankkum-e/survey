@@ -37,6 +37,9 @@
   .hero{padding:12px 4px 22px}
   .hero h1{font-size:25px;line-height:1.35;font-weight:800;letter-spacing:-.6px}
   .hero p{margin-top:12px;color:#4B5058;font-size:15.5px}
+  .gift{margin-top:16px;padding:14px 12px;border-radius:14px;background:var(--brand-soft);border:1px solid var(--brand-line);color:#7A3E0E;font-size:14.5px;font-weight:600;line-height:1.55}
+  .gift .gl{display:block;white-space:nowrap}
+  .gift.wrap .gl{white-space:normal}
   .chips{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
   .chip{font-size:13px;font-weight:600;padding:6px 11px;border-radius:999px;background:var(--brand-soft);color:var(--brand-dark)}
 
@@ -181,6 +184,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbz9HMzwOQKklcKQQ37jyrPRy8
       '<div class="fade">' +
       '<section class="hero"><h1>' + nl(st['설문 제목'] || '단꿈e 설문') + '</h1>' +
       '<p>' + nl(st['안내 문구'] || '') + '</p>' +
+      (S.boot.showGift && st['선물 안내'] ? '<div class="gift" id="gift">' + String(st['선물 안내']).split(/\n/).map(function(l){ return '<span class="gl">' + esc(l) + '</span>'; }).join('') + '</div>' : '') +
       '<div class="chips"><span class="chip">' + S.sections.length + '단계</span><span class="chip">' + count + '개 문항</span></div></section>' +
       '<div class="card"><div class="label">학습자 ID</div><div class="hint">' + nl(st['ID 입력 안내'] || '') + '</div>' +
       '<input class="text-input" id="sid" maxlength="50" autocomplete="off" autocapitalize="off" placeholder="아이디 입력" value="' + esc(S.studentId) + '"></div>' +
@@ -192,9 +196,22 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbz9HMzwOQKklcKQQ37jyrPRy8
     function sync(){ btn.disabled = !(sid.value.trim() && S.agreed); }
     sid.addEventListener('input', function(){ S.studentId = sid.value; sync(); });
     $('consent').addEventListener('click', function(){ S.agreed = !S.agreed; this.classList.toggle('on', S.agreed); sync(); });
+    fitGift();
     btn.addEventListener('click', function(){ if (btn.disabled) return; S.studentId = sid.value.trim(); goStep(visibleSteps()[0]); });
     sync();
   }
+
+  /* 선물 안내: 문장 중간에서 줄이 바뀌지 않도록 화면 폭에 맞춰 글자 크기를 조금 줄임 (최소 12px) */
+  function fitGift(){
+    var box = $('gift'); if (!box) return;
+    box.classList.remove('wrap'); box.style.fontSize = '';
+    var base = parseFloat(getComputedStyle(box).fontSize), avail = box.clientWidth - 24, widest = 0;
+    box.querySelectorAll('.gl').forEach(function(l){ widest = Math.max(widest, l.scrollWidth); });
+    if (widest <= avail) return;
+    var size = Math.floor(base * avail / widest * 10) / 10;
+    if (size >= 12) box.style.fontSize = size + 'px'; else { box.style.fontSize = '12px'; box.classList.add('wrap'); }
+  }
+  window.addEventListener('resize', fitGift);
 
   /* ---------- 섹션 ---------- */
   function goStep(i){ S.step = i; renderSection(); top0(); }
@@ -369,6 +386,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbz9HMzwOQKklcKQQ37jyrPRy8
       .then(function(r){ return r.json(); })
       .then(function(data){
         data.type = type; data.initialId = id;
+        data.showGift = q.get('ev') === '1'; // 마케팅 수신 동의자 링크에만 &ev=1 → 선물 안내 표시
         if (data.settings && data.settings['설문 제목']) document.title = data.settings['설문 제목'];
         initSurvey(data);
       })
